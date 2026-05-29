@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ultimate Tic Tac Toe</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      gap: 0;
+    }
+
+    h1 {
+      font-size: clamp(1.4rem, 4vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #f1f5f9;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 0.78rem;
+      color: #475569;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    /* ── Status bar ── */
+    #status {
+      font-size: clamp(0.9rem, 2.5vw, 1.05rem);
+      color: #94a3b8;
+      min-height: 2.4em;
+      text-align: center;
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+
+    .winner-msg {
+      font-size: clamp(1rem, 3vw, 1.3rem);
+      font-weight: 700;
+    }
+
+    .px { color: #f87171; font-weight: 700; }
+    .po { color: #60a5fa; font-weight: 700; }
+
+    /* ── Meta-board (small summary) ── */
+    #meta-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    #meta-label {
+      font-size: 0.72rem;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 22px);
+      grid-template-rows: repeat(3, 22px);
+      gap: 2px;
+    }
+
+    .mc {
+      width: 22px; height: 22px;
+      background: #1e293b;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+    .mc.X { color: #f87171; background: rgba(248,113,113,0.18); }
+    .mc.O { color: #60a5fa; background: rgba(96,165,250,0.18); }
+    .mc.draw { color: #475569; }
+
+    /* ── Main game board ── */
+    #game {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: min(540px, 97vw);
+    }
+
+    /* ── Small board ── */
+    .sb {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+      background: #1e293b;
+      border: 3px solid #334155;
+      border-radius: 10px;
+      padding: 6px;
+      position: relative;
+      aspect-ratio: 1;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .sb.active {
+      border-color: #facc15;
+      background: #1c2613;
+      box-shadow: 0 0 0 2px rgba(250,204,21,0.25), 0 0 20px rgba(250,204,21,0.12);
+    }
+
+    .sb.won-X {
+      border-color: rgba(248,113,113,0.55);
+      background: rgba(248,113,113,0.07);
+    }
+
+    .sb.won-O {
+      border-color: rgba(96,165,250,0.55);
+      background: rgba(96,165,250,0.07);
+    }
+
+    .sb.done-draw {
+      border-color: #334155;
+      background: #161f2b;
+    }
+
+    /* ── Board winner overlay ── */
+    .bw {
+      position: absolute;
+      inset: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(1.8rem, 8vw, 3rem);
+      font-weight: 900;
+      border-radius: 7px;
+      pointer-events: none;
+      animation: pop 0.25s ease;
+    }
+    @keyframes pop {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .bw.X { color: rgba(248,113,113,0.9); }
+    .bw.O { color: rgba(96,165,250,0.9); }
+    .bw.draw { color: rgba(71,85,105,0.7); font-size: clamp(1rem, 4vw, 1.6rem); letter-spacing: 1px; }
+
+    /* ── Individual cells ── */
+    .cell {
+      background: #0f172a;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(0.75rem, 2.5vw, 1.15rem);
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 0.12s, transform 0.1s;
+      aspect-ratio: 1;
+      user-select: none;
+    }
+
+    .cell.clickable:hover {
+      background: #1e293b;
+      transform: scale(1.08);
+    }
+
+    .cell.X { color: #fca5a5; cursor: default; }
+    .cell.O { color: #93c5fd; cursor: default; }
+    .cell.dead { cursor: default; }
+
+    .cell.hint {
+      background: #1a2535;
+    }
+
+    /* ── Controls ── */
+    #controls {
+      margin-top: 22px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      background: #334155;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+      padding: 9px 22px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      letter-spacing: 0.5px;
+    }
+    button:hover { background: #475569; border-color: #64748b; }
+
+    /* ── Rules toggle ── */
+    #rules-section {
+      margin-top: 28px;
+      width: min(540px, 97vw);
+    }
+
+    #rules-toggle {
+      background: none;
+      border: none;
+      color: #475569;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 4px 0;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-decoration: underline dotted;
+    }
+    #rules-toggle:hover { color: #94a3b8; }
+
+    #rules-body {
+      display: none;
+      margin-top: 10px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.83rem;
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+    #rules-body.open { display: block; }
+
+    #rules-body li { margin-left: 16px; margin-bottom: 4px; }
+    #rules-body strong { color: #cbd5e1; }
+  </style>
+</head>
+<body>
+
+<h1>Ultimate Tic Tac Toe</h1>
+<p class="subtitle">2 Players &nbsp;·&nbsp; Local</p>
+
+<div id="status"></div>
+
+<div id="meta-wrap">
+  <span id="meta-label">Meta</span>
+  <div id="meta-grid"></div>
+</div>
+
+<div id="game"></div>
+
+<div id="controls">
+  <button onclick="newGame()">New Game</button>
+</div>
+
+<div id="rules-section">
+  <button id="rules-toggle" onclick="toggleRules()">How to play</button>
+  <div id="rules-body">
+    <ul>
+      <li>The board is a <strong>3×3 grid of small Tic Tac Toe boards</strong>.</li>
+      <li>Where you play <em>within</em> a small board tells your opponent <strong>which small board</strong> they must play in next.</li>
+      <li>Example: play in the top-right cell of any small board → opponent must play in the <strong>top-right small board</strong>.</li>
+      <li>If the target small board is already <strong>won or full</strong>, the opponent may play in any open board.</li>
+      <li><strong>Win three small boards in a row</strong> (row, column, or diagonal) to win the game.</li>
+      <li>The <strong>highlighted board(s)</strong> show where the current player must move.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  // ── State ───────────────────────────────────────────────────────────────────
+  let cells, meta, activeBr, activeBc, currentPlayer, gameOver;
+
+  function newGame() {
+    cells = Array.from({length:3}, () =>
+      Array.from({length:3}, () =>
+        Array.from({length:3}, () => Array(3).fill(''))
+      )
+    );
+    meta = Array.from({length:3}, () => Array(3).fill(''));
+    activeBr = null;
+    activeBc = null;
+    currentPlayer = 'X';
+    gameOver = false;
+    render();
+  }
+
+  // ── Logic ───────────────────────────────────────────────────────────────────
+  function checkWin(grid, mark) {
+    for (let i = 0; i < 3; i++) {
+      if (grid[i].every(c => c === mark)) return true;
+      if ([0,1,2].every(j => grid[j][i] === mark)) return true;
+    }
+    if ([0,1,2].every(i => grid[i][i]   === mark)) return true;
+    if ([0,1,2].every(i => grid[i][2-i] === mark)) return true;
+    return false;
+  }
+
+  function boardFull(br, bc) {
+    return cells[br][bc].every(row => row.every(c => c !== ''));
+  }
+
+  function boardDone(br, bc) {
+    return meta[br][bc] !== '' || boardFull(br, bc);
+  }
+
+  function isMetaDraw() {
+    return [0,1,2].every(r => [0,1,2].every(c => boardDone(r, c)));
+  }
+
+  function makeMove(br, bc, sr, sc) {
+    if (gameOver) return;
+    if (cells[br][bc][sr][sc] !== '') return;
+    if (meta[br][bc] !== '') return;
+    if (activeBr !== null && (br !== activeBr || bc !== activeBc)) return;
+
+    cells[br][bc][sr][sc] = currentPlayer;
+
+    if (checkWin(cells[br][bc], currentPlayer)) {
+      meta[br][bc] = currentPlayer;
+      if (checkWin(meta, currentPlayer)) {
+        gameOver = true;
+        render();
+        return;
+      }
+    }
+
+    if (isMetaDraw()) {
+      gameOver = true;
+      render();
+      return;
+    }
+
+    activeBr = boardDone(sr, sc) ? null : sr;
+    activeBc = boardDone(sr, sc) ? null : sc;
+
+    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+    render();
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  function render() {
+    renderStatus();
+    renderGame();
+    renderMeta();
+  }
+
+  function renderStatus() {
+    const el = document.getElementById('status');
+    if (gameOver) {
+      if (checkWin(meta, 'X')) {
+        el.innerHTML = `<div class="winner-msg"><span class="px">X</span> wins the game! 🎉</div>`;
+      } else if (checkWin(meta, 'O')) {
+        el.innerHTML = `<div class="winner-msg"><span class="po">O</span> wins the game! 🎉</div>`;
+      } else {
+        el.innerHTML = `<div class="winner-msg">It's a draw!</div>`;
+      }
+    } else {
+      const cls = currentPlayer === 'X' ? 'px' : 'po';
+      const forced = activeBr !== null
+        ? `<br><span style="font-size:0.82em;color:#64748b">Must play in the highlighted board</span>`
+        : `<br><span style="font-size:0.82em;color:#64748b">Any open board</span>`;
+      el.innerHTML = `Player <span class="${cls}">${currentPlayer}</span>'s turn${forced}`;
+    }
+  }
+
+  function renderGame() {
+    const gameEl = document.getElementById('game');
+    gameEl.innerHTML = '';
+
+    for (let br = 0; br < 3; br++) {
+      for (let bc = 0; bc < 3; bc++) {
+        const boardEl = document.createElement('div');
+        boardEl.className = 'sb';
+
+        const winner = meta[br][bc];
+        const done   = boardDone(br, bc);
+        const isActive = !gameOver && !done &&
+          (activeBr === null || (activeBr === br && activeBc === bc));
+
+        if      (winner === 'X') boardEl.classList.add('won-X');
+        else if (winner === 'O') boardEl.classList.add('won-O');
+        else if (done)           boardEl.classList.add('done-draw');
+        else if (isActive)       boardEl.classList.add('active');
+
+        // Cells
+        for (let sr = 0; sr < 3; sr++) {
+          for (let sc = 0; sc < 3; sc++) {
+            const cellEl = document.createElement('div');
+            cellEl.className = 'cell';
+            const val = cells[br][bc][sr][sc];
+
+            if (val) {
+              cellEl.textContent = val;
+              cellEl.classList.add(val);
+            } else if (isActive && !done) {
+              cellEl.classList.add('clickable', 'hint');
+              // Capture loop vars
+              (function(b1,b2,s1,s2){ cellEl.addEventListener('click', () => makeMove(b1,b2,s1,s2)); })(br,bc,sr,sc);
+            } else {
+              cellEl.classList.add('dead');
+            }
+            boardEl.appendChild(cellEl);
+          }
+        }
+
+        // Winner / draw overlay
+        if (winner) {
+          const ov = document.createElement('div');
+          ov.className = `bw ${winner}`;
+          ov.textContent = winner;
+          boardEl.appendChild(ov);
+        } else if (done) {
+          const ov = document.createElement('div');
+          ov.className = 'bw draw';
+          ov.textContent = 'DRAW';
+          boardEl.appendChild(ov);
+        }
+
+        gameEl.appendChild(boardEl);
+      }
+    }
+  }
+
+  function renderMeta() {
+    const el = document.getElementById('meta-grid');
+    el.innerHTML = '';
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'mc';
+        const w = meta[r][c];
+        if (w) {
+          cell.textContent = w;
+          cell.classList.add(w);
+        } else if (boardFull(r, c)) {
+          cell.textContent = '·';
+          cell.classList.add('draw');
+        }
+        el.appendChild(cell);
+      }
+    }
+  }
+
+  function toggleRules() {
+    document.getElementById('rules-body').classList.toggle('open');
+  }
+
+  // ── Start ───────────────────────────────────────────────────────────────────
+  newGame();
+</script>
+</body>
+</html>
